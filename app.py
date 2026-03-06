@@ -190,20 +190,22 @@ def inject_css():
             border: 1px solid rgba(49, 51, 63, 0.16);
             border-radius: 16px;
             padding: 16px 18px;
-            background: linear-gradient(180deg, rgba(250,250,252,1) 0%, rgba(245,247,250,1) 100%);
+            background: #ffffff;
+            color: #111827;
             margin-bottom: 12px;
         }
         .dark-card {
             border-radius: 18px;
             padding: 20px 22px;
             background: linear-gradient(135deg, #0f172a 0%, #18263d 100%);
-            color: white;
+            color: #ffffff;
             margin-bottom: 16px;
         }
         .section-title {
             font-size: 1.05rem;
             font-weight: 700;
             margin-bottom: 0.35rem;
+            color: #111827;
         }
         .small-label {
             font-size: 0.82rem;
@@ -219,9 +221,10 @@ def inject_css():
             font-size: 1.45rem;
             font-weight: 700;
             line-height: 1.2;
+            color: #111827;
         }
         .muted-text {
-            color: #667085;
+            color: #475467;
             font-size: 0.94rem;
         }
         .pill {
@@ -233,32 +236,38 @@ def inject_css():
             font-size: 0.8rem;
             font-weight: 600;
             margin-top: 8px;
-        }
-        .analysis-card {
-            border: 1px solid rgba(49, 51, 63, 0.16);
-            border-radius: 18px;
-            padding: 20px 22px;
-            background: #ffffff;
-            margin-bottom: 14px;
-        }
-        .risk-box {
-            border-left: 4px solid #f59e0b;
-            background: #fffbeb;
-            padding: 12px 14px;
-            border-radius: 10px;
-            margin-top: 12px;
+            margin-bottom: 8px;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-
 def clean_text(value):
     if value is None:
         return None
     return str(value).replace("\xa0", " ").strip()
 
+def clean_model_text(text):
+    if text is None:
+        return ""
+
+    text = str(text)
+
+    # Convert common HTML tags into readable plain text
+    text = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<p\s*>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li\s*>", "• ", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
+
+    # Remove any remaining HTML tags
+    text = re.sub(r"<[^>]+>", "", text)
+
+    # Decode HTML entities like &amp;
+    text = html.unescape(text)
+
+    return text.strip()
 
 def parse_percent(value):
     text = clean_text(value)
@@ -447,12 +456,16 @@ def generate_explanation(match, model_name, system_prompt, allowed_domains, max_
 
 
 def render_info_card(label, value, subtitle=None):
+    safe_label = html.escape(str(label))
+    safe_value = html.escape(str(value))
+    safe_subtitle = html.escape(str(subtitle)) if subtitle else ""
+
     st.markdown(
         f"""
         <div class="card">
-            <div class="small-label">{label}</div>
-            <div class="big-number">{value}</div>
-            {"<div class='muted-text'>" + subtitle + "</div>" if subtitle else ""}
+            <div class="small-label">{safe_label}</div>
+            <div class="big-number">{safe_value}</div>
+            {"<div class='muted-text'>" + safe_subtitle + "</div>" if subtitle else ""}
         </div>
         """,
         unsafe_allow_html=True,
@@ -460,15 +473,19 @@ def render_info_card(label, value, subtitle=None):
 
 
 def render_match_header(match):
+    home_team = html.escape(match["home_team"])
+    away_team = html.escape(match["away_team"])
+    match_date_display = html.escape(str(match["match_date_display"]))
+
     st.markdown(
         f"""
         <div class="dark-card">
             <div class="small-label">Selected match</div>
             <div style="font-size: 1.9rem; font-weight: 800; line-height: 1.2;">
-                {match["home_team"]} vs {match["away_team"]}
+                {home_team} vs {away_team}
             </div>
             <div style="margin-top: 8px; font-size: 1rem; color: rgba(255,255,255,0.85);">
-                {match["match_date_display"]}
+                {match_date_display}
             </div>
         </div>
         """,
@@ -532,19 +549,20 @@ def render_match_data(match):
 
 
 def render_analysis_block(title, text, badge_text=None, risk_note=None):
-    badge_html = f'<div class="pill">{badge_text}</div>' if badge_text else ""
-    risk_html = f'<div class="risk-box"><strong>What could go wrong:</strong> {risk_note}</div>' if risk_note else ""
-    st.markdown(
-        f"""
-        <div class="analysis-card">
-            <div class="section-title">{title}</div>
-            {badge_html}
-            <div style="margin-top: 12px; line-height: 1.65;">{text}</div>
-            {risk_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    with st.container(border=True):
+        st.markdown(f"#### {clean_model_text(title)}")
+
+        if badge_text:
+            safe_badge = html.escape(clean_model_text(badge_text))
+            st.markdown(
+                f'<div class="pill">{safe_badge}</div>',
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(clean_model_text(text))
+
+        if risk_note:
+            st.warning(f"**What could go wrong:** {clean_model_text(risk_note)}")
 
 
 st.set_page_config(page_title="Kickform LLM explainer", layout="wide")
