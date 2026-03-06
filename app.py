@@ -74,9 +74,17 @@ Core rules:
 8. Return JSON only and follow the exact schema.
 9. Write plain text only. Do not output HTML tags.
 
+Recency rules:
+- Use today_date from the input as the anchor for recency.
+- Prioritise the freshest information available close to today_date and close to the scheduled match date.
+- Strongly prefer the current season and the most recent relevant period.
+- Prefer recent form, recent injuries, recent lineup news, recent manager decisions, and recent competition context over older background.
+- Do not mention or rely on events, matches, or news from 2024 or earlier.
+- If you mention a recent fact, make sure it is genuinely recent and relevant to the match.
+
 What to look at first:
 - the last five matches of each team
-- the last five head-to-head matches between these teams, not only this season
+- the last five head-to-head matches between these teams, but mention only the most relevant patterns
 - how strong each team has been in this specific competition or tournament
 - goals scored and goals conceded
 - home and away form if relevant
@@ -96,31 +104,41 @@ Writing style:
 - Do not use citations, bullet lists, source notes, HTML, or markdown tables in the final text.
 - Do not sound like a disclaimer.
 - Do not promise certainty. Use smart, responsible language.
+- BTTS means both teams to score.
 
-Very important evidence rules:
-- Make the analysis feel grounded in real football evidence.
-- In each section, when relevant, mention a few concrete anchors such as:
-  - one recent result or form trend
-  - one notable head-to-head pattern
-  - one key player, scorer, creator, injury, suspension, or lineup point
-  - one major tactical or coaching factor
-  - one important recent news event affecting the match
-- Do not overload the text with too many examples.
-- Mention only the most relevant details that genuinely help justify the supplied forecast.
-- It is better to mention 2-4 strong, specific anchors than many weak ones.
-- Use player names, manager names, and notable match events when they matter.
+Evidence rules:
+- Every text section must include at least one concrete data anchor.
+- A concrete data anchor can be:
+  - a recent match result
+  - a recent head-to-head pattern
+  - a player name
+  - a manager name
+  - an injury, suspension, or lineup point
+  - a relevant recent news development
+  - a current-season competition trend
+- Mention only a few strong anchors, not a long list.
+- It is better to mention 1-3 highly relevant facts than many weak ones.
+- Use player names, manager names, and recent match references when they genuinely support the forecast.
 - Do not list all matches or all events.
 
 Very important consistency rules:
-- All five output blocks must describe the same likely match story.
-- The general match description must support the same scenario as the outcome, correct score, BTTS, and goals sections.
+- All output blocks must describe the same likely match story.
+- The general match description must support the same scenario as the outcome, correct score, both teams to score, goals, and value tip sections.
 - Do not let one block imply an open high-scoring game while another implies a tight low-event match unless the forecast itself clearly supports that tension.
-- The outcome explanation, correct score explanation, BTTS explanation, and goals explanation must be compatible with each other.
+- The outcome explanation, correct score explanation, both teams to score explanation, goals explanation, and value tip explanation must be compatible with each other.
 - If the most likely outcome is an away win, do not describe the home team as the likely dominant side unless clearly framed as a risk scenario.
-- If BTTS leans No, do not describe both attacks as very likely to score freely.
-- If BTTS leans Yes, do not describe one side as very unlikely to create chances unless you explain the contradiction carefully.
+- If both teams to score leans No, do not describe both attacks as very likely to score freely.
+- If both teams to score leans Yes, do not describe one side as very unlikely to create chances unless you explain that tension carefully.
 - If the most likely correct score is, for example, 0-2, the narrative should broadly fit that kind of match pattern.
 - Before responding, do a final consistency check and rewrite any block that conflicts with the others.
+
+Value tip rules:
+- The input may include an optional value_tip with a tip and confidence_rating.
+- If value_tip.tip is empty or missing, return an empty value_tip block with blank title, blank tip, blank text, and confidence_rating 0.
+- If a value tip is provided, explain why that specific advised bet is attractive in this match context.
+- Explain the confidence level in a natural way: why it is only 1/5 or 2/5, or why it deserves 4/5 or 5/5.
+- The value tip explanation must stay aligned with the rest of the forecast story.
+- The value tip section must include at least one concrete data anchor.
 
 Output goals:
 - Explain how the match is likely to unfold.
@@ -133,31 +151,37 @@ Return these sections:
    - title
    - text
    - risk_note
-2. match_outcome_probability
+2. value_tip
+   - title
+   - tip
+   - confidence_rating
+   - text
+3. match_outcome_probability
    - title
    - favored_outcome
    - text
-3. correct_score_probability
+4. correct_score_probability
    - title
    - most_likely_score
    - text
-4. both_teams_to_score
+5. both_teams_to_score
    - title
    - most_likely_outcome
    - text
-5. match_goals_probability
+6. match_goals_probability
    - title
    - text
 
 Content instructions:
 - general_match_description: describe the likely game script, who may control the ball, who may create the better chances, whether the match should be open or controlled, and why. Include a few concrete details such as a recent result, a key player, or a relevant news item if they materially support the forecast. End with a concise note on what could break the prediction.
-- match_outcome_probability: explain why the favored outcome has the edge using form, quality, match-up, competition context, and team news. Mention a few concrete supporting details when possible.
+- value_tip: explain the specific advised bet and why the selected confidence rating makes sense. Use recent facts, matchup logic, and team context to support it.
+- match_outcome_probability: explain why the favored outcome has the edge using form, quality, matchup, competition context, and team news. Mention a few concrete supporting details when possible.
 - correct_score_probability: explain the most likely exact score as the leading scenario among many possible outcomes, not as a certainty. Mention the most relevant concrete details that make that scoreline plausible.
-- both_teams_to_score: explain whether both sides are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state. Mention a few concrete anchors when useful.
+- both_teams_to_score: explain whether both teams are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state. Mention a few concrete anchors when useful.
 - match_goals_probability: explain whether the profile points more toward a low-, medium-, or high-scoring game, using recent trends, tactical setup, and key team news. Mention a few concrete anchors when useful.
 
 Final reminder:
-The finished copy must read like expert football analysis for end users. It must be richer, more explicit, more insightful, and more concrete than a basic summary.
+The finished copy must read like expert football analysis for end users. It must be richer, more explicit, more insightful, more concrete, and more recent than a basic summary.
 """
 
 OUTPUT_SCHEMA = {
@@ -171,6 +195,17 @@ OUTPUT_SCHEMA = {
                 "risk_note": {"type": "string"},
             },
             "required": ["title", "text", "risk_note"],
+            "additionalProperties": False,
+        },
+        "value_tip": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "tip": {"type": "string"},
+                "confidence_rating": {"type": "integer"},
+                "text": {"type": "string"},
+            },
+            "required": ["title", "tip", "confidence_rating", "text"],
             "additionalProperties": False,
         },
         "match_outcome_probability": {
@@ -215,6 +250,7 @@ OUTPUT_SCHEMA = {
     },
     "required": [
         "general_match_description",
+        "value_tip",
         "match_outcome_probability",
         "correct_score_probability",
         "both_teams_to_score",
@@ -242,12 +278,6 @@ def inject_css():
             background: linear-gradient(135deg, #0f172a 0%, #18263d 100%);
             color: #ffffff;
             margin-bottom: 16px;
-        }
-        .section-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 0.35rem;
-            color: #111827;
         }
         .small-label {
             font-size: 0.82rem;
@@ -288,6 +318,14 @@ def inject_css():
             color: #111827;
             margin-bottom: 16px;
         }
+        .value-tip-box {
+            border: 1px solid rgba(49, 51, 63, 0.12);
+            border-radius: 14px;
+            padding: 14px 16px;
+            background: #fffdf5;
+            color: #111827;
+            margin-bottom: 16px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -297,7 +335,7 @@ def inject_css():
 def clean_text(value):
     if value is None:
         return None
-    return str(value).replace("\xa0", " ").strip()
+    return str(value).replace("\\xa0", " ").strip()
 
 
 def clean_model_text(text):
@@ -305,11 +343,11 @@ def clean_model_text(text):
         return ""
 
     text = str(text)
-    text = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"<p\s*>", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"<li\s*>", "• ", text, flags=re.IGNORECASE)
-    text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<\\s*br\\s*/?\\s*>", "\\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p\\s*>", "\\n\\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<p\\s*>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li\\s*>", "• ", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li\\s*>", "\\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
     text = html.unescape(text)
     return text.strip()
@@ -349,6 +387,11 @@ def parse_match_datetime(value):
         return text, None, None
 
     return text, dt.strftime("%Y-%m-%d"), dt.strftime("%d %b %Y • %H:%M")
+
+
+def stars_text(rating):
+    rating = max(0, min(5, int(rating)))
+    return "★" * rating + "☆" * (5 - rating)
 
 
 @st.cache_data
@@ -461,8 +504,20 @@ def load_matches_from_excel(path):
     return matches
 
 
-def build_user_payload(match, bookmaker):
+def build_user_payload(match, bookmaker, value_tip_text, value_tip_confidence):
+    if value_tip_text and value_tip_text.strip():
+        value_tip = {
+            "tip": value_tip_text.strip(),
+            "confidence_rating": int(value_tip_confidence),
+        }
+    else:
+        value_tip = {
+            "tip": "",
+            "confidence_rating": 0,
+        }
+
     return {
+        "today_date": datetime.now().date().isoformat(),
         "match": {
             "home_team": match["home_team"],
             "away_team": match["away_team"],
@@ -474,6 +529,7 @@ def build_user_payload(match, bookmaker):
             "url": bookmaker["url"],
             "placeholder_odds": "XX",
         },
+        "value_tip": value_tip,
         "engine_forecast": match["engine_forecast"],
     }
 
@@ -508,9 +564,10 @@ def append_bookmaker_note(base_text, note):
     return f"{base_text} {note}"
 
 
-def make_bookmaker_note(section_key, bookmaker, match):
+def make_bookmaker_note(section_key, bookmaker, match, value_tip_text=""):
     name = bookmaker["name"]
     url = bookmaker["url"]
+    bookmaker_link = f"[{name}]({url})"
     odds_link = f"[XX]({url})"
 
     forecast = match["engine_forecast"]
@@ -521,44 +578,48 @@ def make_bookmaker_note(section_key, bookmaker, match):
     top_goals_market = get_top_goals_market(forecast["match_goals_probability"])
 
     if section_key == "general_match_description":
-        return (
-            f"{name} broadly leans towards that overall match script in this demo "
-            f"and offers {odds_link} for that angle."
-        )
+        return f"{bookmaker_link} leans the same way here and has {odds_link} for that angle."
+
+    if section_key == "value_tip":
+        if value_tip_text.strip():
+            return f"{bookmaker_link} also rates {value_tip_text.strip()} as a live option and has {odds_link} on that market."
+        return f"{bookmaker_link} also has {odds_link} on this market."
 
     if section_key == "match_outcome_probability":
-        return (
-            f"{name} also leans towards a {favored_outcome.lower()} in this demo "
-            f"and lists {odds_link} for that outcome."
-        )
+        return f"{bookmaker_link} also expects a {favored_outcome.lower()} here and has {odds_link} on that outcome."
 
     if section_key == "correct_score_probability":
-        return (
-            f"{name} also prices the {likely_score} scoreline at {odds_link} in this demo."
-        )
+        return f"{bookmaker_link} has {odds_link} on the {likely_score} scoreline."
 
     if section_key == "both_teams_to_score":
-        return (
-            f"{name} also leans towards BTTS {btts_outcome.lower()} in this demo "
-            f"and shows {odds_link} for that market."
-        )
+        phrase = "both teams to score" if btts_outcome == "Yes" else "both teams not to score"
+        return f"{bookmaker_link} also leans towards {phrase} and has {odds_link} for that market."
 
     if section_key == "match_goals_probability":
-        return (
-            f"{name} also points towards {top_goals_market} in this demo "
-            f"and offers {odds_link} for that line."
-        )
+        return f"{bookmaker_link} also points towards {top_goals_market} and has {odds_link} on that line."
 
-    return f"{name} also shows {odds_link} for this market in the demo."
+    return f"{bookmaker_link} has {odds_link} for this market."
 
 
-def generate_explanation(match, bookmaker, model_name, system_prompt, allowed_domains, max_tool_calls):
+def generate_explanation(
+    match,
+    bookmaker,
+    value_tip_text,
+    value_tip_confidence,
+    model_name,
+    system_prompt,
+    allowed_domains,
+    max_tool_calls,
+):
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
     response = client.responses.create(
         model=model_name,
         instructions=system_prompt,
-        input=json.dumps(build_user_payload(match, bookmaker), ensure_ascii=False),
+        input=json.dumps(
+            build_user_payload(match, bookmaker, value_tip_text, value_tip_confidence),
+            ensure_ascii=False,
+        ),
         tools=[
             {
                 "type": "web_search",
@@ -619,20 +680,58 @@ def render_match_header(match):
 
 
 def render_bookmaker_box(bookmaker):
+    safe_url = html.escape(bookmaker["url"])
+    safe_name = html.escape(bookmaker["name"])
+
     st.markdown(
         f"""
         <div class="bookmaker-box">
             <div class="small-label">Partner bookmaker</div>
             <div style="font-size: 1.05rem; font-weight: 700;">
-                <a href="{html.escape(bookmaker["url"])}" target="_blank">{html.escape(bookmaker["name"])}</a>
+                <a href="{safe_url}" target="_blank">{safe_name}</a>
             </div>
             <div class="muted-text" style="margin-top: 6px;">
-                Demo mode: analysis blocks will include a clickable placeholder odds link using XX.
+                The selected bookmaker name and XX odds placeholder will appear naturally inside each analysis block.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_value_tip_input(current_tip, current_confidence):
+    st.markdown(
+        """
+        <div class="value-tip-box">
+            <div class="small-label">Optional value tip</div>
+            <div class="muted-text">Add your advised bet and confidence level. The app will generate a dedicated explanation block for it.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2 = st.columns([3, 2])
+
+    with col1:
+        value_tip_text = st.text_input(
+            "Value tip",
+            value=current_tip,
+            placeholder="e.g. Over 3.5 Goals",
+        )
+
+    with col2:
+        value_tip_confidence = st.select_slider(
+            "Confidence rating",
+            options=[1, 2, 3, 4, 5],
+            value=current_confidence,
+            format_func=lambda x: stars_text(x),
+            disabled=not bool(value_tip_text.strip()),
+        )
+
+    if value_tip_text.strip():
+        st.caption(f"Selected confidence: {stars_text(value_tip_confidence)} ({value_tip_confidence}/5)")
+
+    return value_tip_text, value_tip_confidence
 
 
 def render_match_data(match):
@@ -717,7 +816,7 @@ if "last_result_key" not in st.session_state:
 
 st.title("Kickform LLM explainer")
 st.caption(
-    "Select a match from your forecast file, review the forecast data, choose a partner bookmaker, then generate a readable expert-style explanation."
+    "Select a match from your forecast file, review the forecast data, choose a partner bookmaker, optionally add a value tip, then generate a readable expert-style explanation."
 )
 
 with st.sidebar:
@@ -740,7 +839,7 @@ with st.sidebar:
 
     domains_text = st.text_area(
         "Allowed websites (one per line)",
-        value="\n".join(DEFAULT_ALLOWED_DOMAINS),
+        value="\\n".join(DEFAULT_ALLOWED_DOMAINS),
         height=180,
     )
     allowed_domains = [line.strip() for line in domains_text.splitlines() if line.strip()]
@@ -748,7 +847,7 @@ with st.sidebar:
     system_prompt = st.text_area(
         "System prompt",
         value=DEFAULT_SYSTEM_PROMPT,
-        height=500,
+        height=620,
     )
 
 matches = load_matches_from_excel("Forecasts.xlsx")
@@ -760,10 +859,18 @@ if not matches:
 selected_label = st.selectbox("Select a match", [m["label"] for m in matches])
 selected_match = next(m for m in matches if m["label"] == selected_label)
 
-current_result_key = f"{selected_label}__{partner_bookmaker_key}__{model_name}"
-
 render_match_data(selected_match)
 render_bookmaker_box(selected_bookmaker)
+
+value_tip_text, value_tip_confidence = render_value_tip_input(
+    current_tip="",
+    current_confidence=3,
+)
+
+current_result_key = (
+    f"{selected_label}__{partner_bookmaker_key}__{model_name}__"
+    f"{value_tip_text.strip()}__{value_tip_confidence}"
+)
 
 if "OPENAI_API_KEY" not in st.secrets:
     st.error("OPENAI_API_KEY is missing from your Streamlit secrets.")
@@ -772,10 +879,15 @@ if "OPENAI_API_KEY" not in st.secrets:
 if st.button("Generate explanation", type="primary"):
     try:
         with st.status("Working on your explanation", expanded=True) as status:
-            st.write("Step 1/5 — Reading the selected match and forecast values from the Excel file.")
-            payload = build_user_payload(selected_match, selected_bookmaker)
+            st.write("Step 1/6 — Reading the selected match and forecast values from the Excel file.")
+            payload = build_user_payload(
+                selected_match,
+                selected_bookmaker,
+                value_tip_text,
+                value_tip_confidence,
+            )
 
-            st.write("Step 2/5 — Preparing the research brief, bookmaker context, and app settings.")
+            st.write("Step 2/6 — Preparing the research brief, bookmaker context, and app settings.")
             _ = {
                 "model": model_name,
                 "allowed_domains_count": len(allowed_domains),
@@ -784,18 +896,26 @@ if st.button("Generate explanation", type="primary"):
                 "bookmaker": selected_bookmaker["name"],
             }
 
-            st.write("Step 3/5 — Researching trusted football websites and comparing the real match context.")
+            st.write("Step 3/6 — Preparing the optional value tip and confidence rating.")
+            _ = {
+                "value_tip": value_tip_text.strip(),
+                "value_tip_confidence": value_tip_confidence if value_tip_text.strip() else 0,
+            }
+
+            st.write("Step 4/6 — Researching trusted football websites and pulling the most recent match context.")
             result = generate_explanation(
                 match=selected_match,
                 bookmaker=selected_bookmaker,
+                value_tip_text=value_tip_text,
+                value_tip_confidence=value_tip_confidence,
                 model_name=model_name,
                 system_prompt=system_prompt,
                 allowed_domains=allowed_domains,
                 max_tool_calls=max_tool_calls,
             )
 
-            st.write("Step 4/5 — Checking the output structure and preparing consistent analysis blocks.")
-            st.write("Step 5/5 — Rendering the final explanation on the page.")
+            st.write("Step 5/6 — Checking the output structure and aligning all sections to one match story.")
+            st.write("Step 6/6 — Rendering the final explanation on the page.")
             status.update(label="Explanation ready", state="complete", expanded=False)
 
         st.session_state["last_result"] = result
@@ -813,33 +933,45 @@ if result_to_show:
 
     general_text = append_bookmaker_note(
         result_to_show["general_match_description"]["text"],
-        make_bookmaker_note("general_match_description", selected_bookmaker, selected_match),
-    )
-
-    outcome_text = append_bookmaker_note(
-        result_to_show["match_outcome_probability"]["text"],
-        make_bookmaker_note("match_outcome_probability", selected_bookmaker, selected_match),
-    )
-
-    score_text = append_bookmaker_note(
-        result_to_show["correct_score_probability"]["text"],
-        make_bookmaker_note("correct_score_probability", selected_bookmaker, selected_match),
-    )
-
-    btts_text = append_bookmaker_note(
-        result_to_show["both_teams_to_score"]["text"],
-        make_bookmaker_note("both_teams_to_score", selected_bookmaker, selected_match),
-    )
-
-    goals_text = append_bookmaker_note(
-        result_to_show["match_goals_probability"]["text"],
-        make_bookmaker_note("match_goals_probability", selected_bookmaker, selected_match),
+        make_bookmaker_note("general_match_description", selected_bookmaker, selected_match, value_tip_text),
     )
 
     render_analysis_block(
         title=result_to_show["general_match_description"]["title"],
         text=general_text,
         risk_note=result_to_show["general_match_description"]["risk_note"],
+    )
+
+    value_tip_block = result_to_show.get("value_tip", {})
+    if value_tip_block.get("tip", "").strip():
+        value_tip_text_final = append_bookmaker_note(
+            value_tip_block["text"],
+            make_bookmaker_note("value_tip", selected_bookmaker, selected_match, value_tip_block["tip"]),
+        )
+        render_analysis_block(
+            title=value_tip_block["title"],
+            text=value_tip_text_final,
+            badge_text=f'Value tip: {value_tip_block["tip"]} • Confidence: {stars_text(value_tip_block["confidence_rating"])} ({value_tip_block["confidence_rating"]}/5)',
+        )
+
+    outcome_text = append_bookmaker_note(
+        result_to_show["match_outcome_probability"]["text"],
+        make_bookmaker_note("match_outcome_probability", selected_bookmaker, selected_match, value_tip_text),
+    )
+
+    score_text = append_bookmaker_note(
+        result_to_show["correct_score_probability"]["text"],
+        make_bookmaker_note("correct_score_probability", selected_bookmaker, selected_match, value_tip_text),
+    )
+
+    btts_text = append_bookmaker_note(
+        result_to_show["both_teams_to_score"]["text"],
+        make_bookmaker_note("both_teams_to_score", selected_bookmaker, selected_match, value_tip_text),
+    )
+
+    goals_text = append_bookmaker_note(
+        result_to_show["match_goals_probability"]["text"],
+        make_bookmaker_note("match_goals_probability", selected_bookmaker, selected_match, value_tip_text),
     )
 
     render_analysis_block(
@@ -857,7 +989,7 @@ if result_to_show:
     render_analysis_block(
         title=result_to_show["both_teams_to_score"]["title"],
         text=btts_text,
-        badge_text=f'Most likely BTTS outcome: {result_to_show["both_teams_to_score"]["most_likely_outcome"]}',
+        badge_text=f'Most likely both teams to score outcome: {result_to_show["both_teams_to_score"]["most_likely_outcome"]}',
     )
 
     render_analysis_block(
