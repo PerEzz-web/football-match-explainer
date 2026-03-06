@@ -171,17 +171,6 @@ Return these sections:
 6. match_goals_probability
    - title
    - text
-
-Content instructions:
-- general_match_description: describe the likely game script, who may control the ball, who may create the better chances, whether the match should be open or controlled, and why. Include a few concrete details such as a recent result, a key player, or a relevant news item if they materially support the forecast. End with a concise note on what could break the prediction.
-- value_tip: explain the specific advised bet and why the selected confidence rating makes sense. Use recent facts, matchup logic, and team context to support it.
-- match_outcome_probability: explain why the favored outcome has the edge using form, quality, matchup, competition context, and team news. Mention a few concrete supporting details when possible.
-- correct_score_probability: explain the most likely exact score as the leading scenario among many possible outcomes, not as a certainty. Mention the most relevant concrete details that make that scoreline plausible.
-- both_teams_to_score: explain whether both teams are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state. Mention a few concrete anchors when useful.
-- match_goals_probability: explain whether the profile points more toward a low-, medium-, or high-scoring game, using recent trends, tactical setup, and key team news. Mention a few concrete anchors when useful.
-
-Final reminder:
-The finished copy must read like expert football analysis for end users. It must be richer, more explicit, more insightful, more concrete, and more recent than a basic summary.
 """
 
 OUTPUT_SCHEMA = {
@@ -335,7 +324,7 @@ def inject_css():
 def clean_text(value):
     if value is None:
         return None
-    return str(value).replace("\\xa0", " ").strip()
+    return str(value).replace("\xa0", " ").strip()
 
 
 def clean_model_text(text):
@@ -343,11 +332,11 @@ def clean_model_text(text):
         return ""
 
     text = str(text)
-    text = re.sub(r"<\\s*br\\s*/?\\s*>", "\\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</p\\s*>", "\\n\\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"<p\\s*>", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"<li\\s*>", "• ", text, flags=re.IGNORECASE)
-    text = re.sub(r"</li\\s*>", "\\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<p\s*>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li\s*>", "• ", text, flags=re.IGNORECASE)
+    text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
     text = html.unescape(text)
     return text.strip()
@@ -839,7 +828,7 @@ with st.sidebar:
 
     domains_text = st.text_area(
         "Allowed websites (one per line)",
-        value="\\n".join(DEFAULT_ALLOWED_DOMAINS),
+        value="\n".join(DEFAULT_ALLOWED_DOMAINS),
         height=180,
     )
     allowed_domains = [line.strip() for line in domains_text.splitlines() if line.strip()]
