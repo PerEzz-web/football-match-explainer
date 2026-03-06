@@ -18,41 +18,90 @@ DEFAULT_ALLOWED_DOMAINS = [
     "onefootball.com",
 ]
 
-DEFAULT_SYSTEM_PROMPT = """You are a football match prediction analyst and editorial writer.
+PRESET_MODELS = [
+    "gpt-5.4",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "Custom",
+]
 
-Your job is NOT to invent probabilities. Your job is to EXPLAIN and JUSTIFY the probabilities supplied by the user's forecast file using recent, relevant football information found on the web.
+DEFAULT_SYSTEM_PROMPT = """You are an expert football analyst writing premium pre-match editorial copy for a betting/media website.
 
-Important rules:
+Your job is not to change the supplied forecast numbers. Your job is to explain and justify them in a way that feels like an expert match analysis written by a sharp football editor.
+
+Core rules:
 1. The forecast values from the Excel file are the source of truth.
-2. Use web research only to explain and support those values.
-3. Stay aligned with the supplied forecast.
-4. Never invent facts.
-5. If a detail cannot be verified, say so briefly and continue with the strongest verified evidence.
+2. Use recent, relevant football information from the web only to explain and support those values.
+3. Stay aligned with the supplied forecast. Do not materially contradict it.
+4. Never invent facts, lineups, injuries, suspensions, transfers, coaches, scorers, or news.
+5. If some detail cannot be verified, do not guess. Briefly acknowledge uncertainty and continue with the strongest verified evidence.
 6. Search only within the allowed domains provided by the app.
 7. Use no more than the allowed number of tool calls.
-8. Return JSON only.
+8. Return JSON only and follow the exact schema.
 
-Write in clear, website-ready English.
+What to look at first:
+- the last five matches of each team
+- the last five head-to-head matches between these teams, not only this season
+- how strong each team has been in this specific competition or tournament
+- goals scored and goals conceded
+- home and away form if relevant
+- recently signed players, important absences, and any new coach or major tactical change
+- likely lineups for the upcoming match if available at the time of the request
+- top scorers and key attacking players
+- style of play: tempo, pressing, passes, shots, fouls, transitions, set-piece threat, defensive structure
+- major team news that could affect the match
+- anything else that could realistically influence the forecast
+
+Writing style:
+- Sound like a human football expert, not a machine.
+- Write naturally, clearly, and confidently.
+- Be user-friendly, but still analytical and specific.
+- Add context, logic, and reasoning, not generic statements.
+- Do not mention the model, the websites used, the search process, or links.
+- Do not use citations, bullet lists, or source notes in the final text.
+- Do not sound like a disclaimer.
+- Do not promise certainty. Use smart, responsible language.
+
+Output goals:
+- Explain how the match is likely to unfold.
+- Explain why the supplied forecast numbers are reasonable.
+- Mention what could make the prediction fail or become less reliable.
+- Make the text ready to publish on a website with little or no editing.
 
 Return these sections:
-- general_match_description
-- match_outcome_probability
-- correct_score_probability
-- both_teams_to_score
-- match_goals_probability
+1. general_match_description
+   - title
+   - text
+   - risk_note
+2. match_outcome_probability
+   - title
+   - favored_outcome
+   - text
+3. correct_score_probability
+   - title
+   - most_likely_score
+   - text
+4. both_teams_to_score
+   - title
+   - most_likely_outcome
+   - text
+5. match_goals_probability
+   - title
+   - text
 
-Each section must contain:
-- title
-- text
+Content instructions:
+- general_match_description: describe the likely game script, who may control the ball, who may create the better chances, whether the match should be open or controlled, and why. End with a concise note on what could break the prediction.
+- match_outcome_probability: explain why the favored outcome has the edge using form, quality, match-up, competition context, and team news.
+- correct_score_probability: explain the most likely exact score as the leading scenario among many possible outcomes, not as a certainty.
+- both_teams_to_score: explain whether both sides are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state.
+- match_goals_probability: explain whether the profile points more toward a low-, medium-, or high-scoring game, using recent trends and tactical setup.
 
-The correct score section must also contain:
-- most_likely_score
-
-The BTTS section must also contain:
-- most_likely_outcome
-
-The match outcome section must also contain:
-- favored_outcome
+Final reminder:
+The finished copy must read like expert football analysis for end users. It must be richer, more explicit, and more insightful than a basic summary.
 """
 
 OUTPUT_SCHEMA = {
@@ -63,8 +112,9 @@ OUTPUT_SCHEMA = {
             "properties": {
                 "title": {"type": "string"},
                 "text": {"type": "string"},
+                "risk_note": {"type": "string"},
             },
-            "required": ["title", "text"],
+            "required": ["title", "text", "risk_note"],
             "additionalProperties": False,
         },
         "match_outcome_probability": {
@@ -118,6 +168,78 @@ OUTPUT_SCHEMA = {
 }
 
 
+def inject_css():
+    st.markdown(
+        """
+        <style>
+        .card {
+            border: 1px solid rgba(49, 51, 63, 0.16);
+            border-radius: 16px;
+            padding: 16px 18px;
+            background: linear-gradient(180deg, rgba(250,250,252,1) 0%, rgba(245,247,250,1) 100%);
+            margin-bottom: 12px;
+        }
+        .dark-card {
+            border-radius: 18px;
+            padding: 20px 22px;
+            background: linear-gradient(135deg, #0f172a 0%, #18263d 100%);
+            color: white;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+        .small-label {
+            font-size: 0.82rem;
+            color: #667085;
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .dark-card .small-label {
+            color: rgba(255,255,255,0.75);
+        }
+        .big-number {
+            font-size: 1.45rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .muted-text {
+            color: #667085;
+            font-size: 0.94rem;
+        }
+        .pill {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .analysis-card {
+            border: 1px solid rgba(49, 51, 63, 0.16);
+            border-radius: 18px;
+            padding: 20px 22px;
+            background: #ffffff;
+            margin-bottom: 14px;
+        }
+        .risk-box {
+            border-left: 4px solid #f59e0b;
+            background: #fffbeb;
+            padding: 12px 14px;
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def clean_text(value):
     if value is None:
         return None
@@ -133,6 +255,12 @@ def parse_percent(value):
         return float(text) / 100
     except ValueError:
         return None
+
+
+def format_pct(value):
+    if value is None:
+        return "—"
+    return f"{value * 100:.1f}%"
 
 
 def parse_match_datetime(value):
@@ -151,7 +279,7 @@ def parse_match_datetime(value):
     if dt is None:
         return text, None, None
 
-    return text, dt.strftime("%Y-%m-%d"), dt.strftime("%d %b %Y %H:%M")
+    return text, dt.strftime("%Y-%m-%d"), dt.strftime("%d %b %Y • %H:%M")
 
 
 @st.cache_data
@@ -166,7 +294,6 @@ def load_matches_from_excel(path):
         top_left = clean_text(ws.cell(row, 1).value)
         bottom_left = clean_text(ws.cell(row + 1, 1).value) if row + 1 <= ws.max_row else None
 
-        # Your file stores each match across 2 rows
         if top_left and ":" in top_left and bottom_left and " - " in bottom_left:
             raw_datetime, match_date_iso, match_date_display = parse_match_datetime(top_left)
             home_team, away_team = [part.strip() for part in bottom_left.split(" - ", 1)]
@@ -203,26 +330,22 @@ def load_matches_from_excel(path):
             }
 
             handicaps = {
-                "home_handicap_0_5": parse_percent(ws.cell(row, 15).value),
-                "home_handicap_1_5": parse_percent(ws.cell(row, 16).value),
-                "home_handicap_2_5": parse_percent(ws.cell(row, 17).value),
-                "away_handicap_0_5": parse_percent(ws.cell(row, 18).value),
-                "away_handicap_1_5": parse_percent(ws.cell(row, 19).value),
-                "away_handicap_2_5": parse_percent(ws.cell(row, 20).value),
-                "home_handicap_minus_0_5": parse_percent(ws.cell(row, 21).value),
-                "home_handicap_minus_1_5": parse_percent(ws.cell(row, 22).value),
-                "home_handicap_minus_2_5": parse_percent(ws.cell(row, 23).value),
-                "away_handicap_minus_0_5": parse_percent(ws.cell(row, 24).value),
-                "away_handicap_minus_1_5": parse_percent(ws.cell(row, 25).value),
-                "away_handicap_minus_2_5": parse_percent(ws.cell(row, 26).value),
+                "Home +0.5": parse_percent(ws.cell(row, 15).value),
+                "Home +1.5": parse_percent(ws.cell(row, 16).value),
+                "Home +2.5": parse_percent(ws.cell(row, 17).value),
+                "Away +0.5": parse_percent(ws.cell(row, 18).value),
+                "Away +1.5": parse_percent(ws.cell(row, 19).value),
+                "Away +2.5": parse_percent(ws.cell(row, 20).value),
+                "Home -0.5": parse_percent(ws.cell(row, 21).value),
+                "Home -1.5": parse_percent(ws.cell(row, 22).value),
+                "Home -2.5": parse_percent(ws.cell(row, 23).value),
+                "Away -0.5": parse_percent(ws.cell(row, 24).value),
+                "Away -1.5": parse_percent(ws.cell(row, 25).value),
+                "Away -2.5": parse_percent(ws.cell(row, 26).value),
             }
 
             favored_outcome = max(
-                [
-                    ("Home win", home_win),
-                    ("Draw", draw),
-                    ("Away win", away_win),
-                ],
+                [("Home win", home_win), ("Draw", draw), ("Away win", away_win)],
                 key=lambda item: item[1] if item[1] is not None else -1,
             )[0]
 
@@ -299,7 +422,7 @@ def generate_explanation(match, model_name, system_prompt, allowed_domains, max_
         text={
             "format": {
                 "type": "json_schema",
-                "name": "match_explanation",
+                "name": "kickform_match_explanation",
                 "strict": True,
                 "schema": OUTPUT_SCHEMA,
             }
@@ -309,17 +432,121 @@ def generate_explanation(match, model_name, system_prompt, allowed_domains, max_
     return json.loads(response.output_text)
 
 
-st.set_page_config(page_title="Football Match Explainer", layout="wide")
-st.title("Football Match Explainer")
+def render_info_card(label, value, subtitle=None):
+    st.markdown(
+        f"""
+        <div class="card">
+            <div class="small-label">{label}</div>
+            <div class="big-number">{value}</div>
+            {"<div class='muted-text'>" + subtitle + "</div>" if subtitle else ""}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_match_header(match):
+    st.markdown(
+        f"""
+        <div class="dark-card">
+            <div class="small-label">Selected match</div>
+            <div style="font-size: 1.9rem; font-weight: 800; line-height: 1.2;">
+                {match["home_team"]} vs {match["away_team"]}
+            </div>
+            <div style="margin-top: 8px; font-size: 1rem; color: rgba(255,255,255,0.85);">
+                {match["match_date_display"]}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_match_data(match):
+    forecast = match["engine_forecast"]
+
+    st.subheader("Match data")
+    render_match_header(match)
+
+    st.markdown("#### Match outcome probabilities")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_info_card("Home win", format_pct(forecast["match_outcome_probability"]["home_win"]))
+    with col2:
+        render_info_card("Draw", format_pct(forecast["match_outcome_probability"]["draw"]))
+    with col3:
+        render_info_card("Away win", format_pct(forecast["match_outcome_probability"]["away_win"]))
+
+    st.markdown("#### Most likely correct scores")
+    score_cols = st.columns(3)
+    for idx, item in enumerate(forecast["correct_score_probability"]["top_outcomes"]):
+        with score_cols[idx]:
+            render_info_card(item["score"] or "—", format_pct(item["probability"]), "Probability")
+
+    st.markdown("#### Both teams to score")
+    col1, col2 = st.columns(2)
+    with col1:
+        render_info_card("Yes", format_pct(forecast["both_teams_to_score"]["yes"]))
+    with col2:
+        render_info_card("No", format_pct(forecast["both_teams_to_score"]["no"]))
+
+    st.markdown("#### Goals markets")
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+
+    with row1[0]:
+        render_info_card("Over 1.5", format_pct(forecast["match_goals_probability"]["over_1_5"]))
+    with row1[1]:
+        render_info_card("Over 2.5", format_pct(forecast["match_goals_probability"]["over_2_5"]))
+    with row1[2]:
+        render_info_card("Over 3.5", format_pct(forecast["match_goals_probability"]["over_3_5"]))
+
+    with row2[0]:
+        render_info_card("Under 1.5", format_pct(forecast["match_goals_probability"]["under_1_5"]))
+    with row2[1]:
+        render_info_card("Under 2.5", format_pct(forecast["match_goals_probability"]["under_2_5"]))
+    with row2[2]:
+        render_info_card("Under 3.5", format_pct(forecast["match_goals_probability"]["under_3_5"]))
+
+    with st.expander("Show handicap probabilities"):
+        handicap_items = list(forecast["handicaps"].items())
+        for start in range(0, len(handicap_items), 3):
+            cols = st.columns(3)
+            for col, (label, value) in zip(cols, handicap_items[start:start + 3]):
+                with col:
+                    render_info_card(label, format_pct(value))
+
+
+def render_analysis_block(title, text, badge_text=None, risk_note=None):
+    badge_html = f'<div class="pill">{badge_text}</div>' if badge_text else ""
+    risk_html = f'<div class="risk-box"><strong>What could go wrong:</strong> {risk_note}</div>' if risk_note else ""
+    st.markdown(
+        f"""
+        <div class="analysis-card">
+            <div class="section-title">{title}</div>
+            {badge_html}
+            <div style="margin-top: 12px; line-height: 1.65;">{text}</div>
+            {risk_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+st.set_page_config(page_title="Kickform LLM explainer", layout="wide")
+inject_css()
+
+st.title("Kickform LLM explainer")
+st.caption("Select a match from your forecast file, review the forecast data, then generate a readable expert-style explanation.")
 
 with st.sidebar:
     st.header("Settings")
 
-    model_name = st.selectbox(
-        "GPT model",
-        ["gpt-4o", "gpt-4o-mini", "gpt-5"],
-        index=0,
-    )
+    model_choice = st.selectbox("GPT model", PRESET_MODELS, index=0)
+    if model_choice == "Custom":
+        model_name = st.text_input("Custom model ID", value="gpt-5.4")
+    else:
+        model_name = model_choice
 
     max_tool_calls = st.slider("Max web search calls", 1, 10, 4)
 
@@ -333,7 +560,7 @@ with st.sidebar:
     system_prompt = st.text_area(
         "System prompt",
         value=DEFAULT_SYSTEM_PROMPT,
-        height=320,
+        height=420,
     )
 
 matches = load_matches_from_excel("Forecasts.xlsx")
@@ -345,12 +572,23 @@ if not matches:
 selected_label = st.selectbox("Select a match", [m["label"] for m in matches])
 selected_match = next(m for m in matches if m["label"] == selected_label)
 
-st.subheader("Selected match data from the Excel file")
-st.json(selected_match)
+render_match_data(selected_match)
 
-if st.button("Generate explanation"):
-    with st.spinner("Generating explanation..."):
-        try:
+if st.button("Generate explanation", type="primary"):
+    try:
+        with st.status("Working on your explanation", expanded=True) as status:
+            st.write("Step 1/5 — Reading the selected match and forecast values from the Excel file.")
+            payload = build_user_payload(selected_match)
+
+            st.write("Step 2/5 — Preparing the research brief and checking your app settings.")
+            _ = {
+                "model": model_name,
+                "allowed_domains_count": len(allowed_domains),
+                "max_tool_calls": max_tool_calls,
+                "payload_ready": bool(payload),
+            }
+
+            st.write("Step 3/5 — Asking the model to research trusted football websites and compare the match context.")
             result = generate_explanation(
                 match=selected_match,
                 model_name=model_name,
@@ -358,25 +596,41 @@ if st.button("Generate explanation"):
                 allowed_domains=allowed_domains,
                 max_tool_calls=max_tool_calls,
             )
-        except Exception as e:
-            st.error(f"Error: {e}")
-        else:
-            st.success("Done")
 
-            st.subheader(result["general_match_description"]["title"])
-            st.write(result["general_match_description"]["text"])
+            st.write("Step 4/5 — Converting the response into structured analysis blocks.")
+            st.write("Step 5/5 — Rendering the final explanation in the page.")
+            status.update(label="Explanation ready", state="complete", expanded=False)
 
-            st.subheader(result["match_outcome_probability"]["title"])
-            st.write(f"Favored outcome: {result['match_outcome_probability']['favored_outcome']}")
-            st.write(result["match_outcome_probability"]["text"])
+    except Exception as e:
+        st.error(f"Error: {e}")
+    else:
+        st.markdown("## Expert analysis")
 
-            st.subheader(result["correct_score_probability"]["title"])
-            st.write(f"Most likely score: {result['correct_score_probability']['most_likely_score']}")
-            st.write(result["correct_score_probability"]["text"])
+        render_analysis_block(
+            title=result["general_match_description"]["title"],
+            text=result["general_match_description"]["text"],
+            risk_note=result["general_match_description"]["risk_note"],
+        )
 
-            st.subheader(result["both_teams_to_score"]["title"])
-            st.write(f"Most likely BTTS outcome: {result['both_teams_to_score']['most_likely_outcome']}")
-            st.write(result["both_teams_to_score"]["text"])
+        render_analysis_block(
+            title=result["match_outcome_probability"]["title"],
+            text=result["match_outcome_probability"]["text"],
+            badge_text=f'Favored outcome: {result["match_outcome_probability"]["favored_outcome"]}',
+        )
 
-            st.subheader(result["match_goals_probability"]["title"])
-            st.write(result["match_goals_probability"]["text"])
+        render_analysis_block(
+            title=result["correct_score_probability"]["title"],
+            text=result["correct_score_probability"]["text"],
+            badge_text=f'Most likely score: {result["correct_score_probability"]["most_likely_score"]}',
+        )
+
+        render_analysis_block(
+            title=result["both_teams_to_score"]["title"],
+            text=result["both_teams_to_score"]["text"],
+            badge_text=f'Most likely BTTS outcome: {result["both_teams_to_score"]["most_likely_outcome"]}',
+        )
+
+        render_analysis_block(
+            title=result["match_goals_probability"]["title"],
+            text=result["match_goals_probability"]["text"],
+        )
