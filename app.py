@@ -1,4 +1,6 @@
 import json
+import html
+import re
 from datetime import datetime
 
 import openpyxl
@@ -42,6 +44,7 @@ Core rules:
 6. Search only within the allowed domains provided by the app.
 7. Use no more than the allowed number of tool calls.
 8. Return JSON only and follow the exact schema.
+9. Write plain text only. Do not output HTML tags.
 
 What to look at first:
 - the last five matches of each team
@@ -65,6 +68,17 @@ Writing style:
 - Do not use citations, bullet lists, or source notes in the final text.
 - Do not sound like a disclaimer.
 - Do not promise certainty. Use smart, responsible language.
+
+Very important consistency rules:
+- All five output blocks must describe the same likely match story.
+- The general match description must support the same scenario as the outcome, correct score, BTTS, and goals sections.
+- Do not let one block imply an open high-scoring game while another implies a tight low-event match unless the forecast itself clearly supports that tension.
+- The outcome explanation, correct score explanation, BTTS explanation, and goals explanation must be compatible with each other.
+- If the most likely outcome is an away win, do not describe the home team as the likely dominant side unless clearly framed as a risk scenario.
+- If BTTS leans No, do not describe both attacks as very likely to score freely.
+- If BTTS leans Yes, do not describe one side as very unlikely to create chances unless you explain the contradiction carefully.
+- If the most likely correct score is, for example, 0-2, the narrative should broadly fit that kind of match pattern.
+- Before responding, do a final consistency check and rewrite any block that conflicts with the others.
 
 Output goals:
 - Explain how the match is likely to unfold.
