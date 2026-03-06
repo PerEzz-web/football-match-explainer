@@ -20,12 +20,40 @@ DEFAULT_ALLOWED_DOMAINS = [
     "onefootball.com",
 ]
 
+BOOKMAKER_OPTIONS = {
+    "Betlabel": {
+        "name": "Betlabel",
+        "url": "https://betlabel.com/en",
+    },
+    "Playzilla": {
+        "name": "Playzilla",
+        "url": "https://playzilla.com/en/",
+    },
+    "20Bet": {
+        "name": "20Bet",
+        "url": "https://20bet.com/",
+    },
+    "22Bet": {
+        "name": "22Bet",
+        "url": "https://22bet.com/",
+    },
+    "Ivibet": {
+        "name": "Ivibet",
+        "url": "https://ivibet.com/",
+    },
+    "N1 Bet": {
+        "name": "N1 Bet",
+        "url": "https://1n1bet.com/",
+    },
+}
+
 PRESET_MODELS = [
     "gpt-5.4",
-    "gpt-5.1",
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
     "gpt-4o",
     "gpt-4o-mini",
     "Custom",
@@ -65,9 +93,23 @@ Writing style:
 - Be user-friendly, but still analytical and specific.
 - Add context, logic, and reasoning, not generic statements.
 - Do not mention the model, the websites used, the search process, or links.
-- Do not use citations, bullet lists, or source notes in the final text.
+- Do not use citations, bullet lists, source notes, HTML, or markdown tables in the final text.
 - Do not sound like a disclaimer.
 - Do not promise certainty. Use smart, responsible language.
+
+Very important evidence rules:
+- Make the analysis feel grounded in real football evidence.
+- In each section, when relevant, mention a few concrete anchors such as:
+  - one recent result or form trend
+  - one notable head-to-head pattern
+  - one key player, scorer, creator, injury, suspension, or lineup point
+  - one major tactical or coaching factor
+  - one important recent news event affecting the match
+- Do not overload the text with too many examples.
+- Mention only the most relevant details that genuinely help justify the supplied forecast.
+- It is better to mention 2-4 strong, specific anchors than many weak ones.
+- Use player names, manager names, and notable match events when they matter.
+- Do not list all matches or all events.
 
 Very important consistency rules:
 - All five output blocks must describe the same likely match story.
@@ -108,14 +150,14 @@ Return these sections:
    - text
 
 Content instructions:
-- general_match_description: describe the likely game script, who may control the ball, who may create the better chances, whether the match should be open or controlled, and why. End with a concise note on what could break the prediction.
-- match_outcome_probability: explain why the favored outcome has the edge using form, quality, match-up, competition context, and team news.
-- correct_score_probability: explain the most likely exact score as the leading scenario among many possible outcomes, not as a certainty.
-- both_teams_to_score: explain whether both sides are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state.
-- match_goals_probability: explain whether the profile points more toward a low-, medium-, or high-scoring game, using recent trends and tactical setup.
+- general_match_description: describe the likely game script, who may control the ball, who may create the better chances, whether the match should be open or controlled, and why. Include a few concrete details such as a recent result, a key player, or a relevant news item if they materially support the forecast. End with a concise note on what could break the prediction.
+- match_outcome_probability: explain why the favored outcome has the edge using form, quality, match-up, competition context, and team news. Mention a few concrete supporting details when possible.
+- correct_score_probability: explain the most likely exact score as the leading scenario among many possible outcomes, not as a certainty. Mention the most relevant concrete details that make that scoreline plausible.
+- both_teams_to_score: explain whether both sides are likely to score based on attacking quality, defensive solidity, recent scoring patterns, and expected match state. Mention a few concrete anchors when useful.
+- match_goals_probability: explain whether the profile points more toward a low-, medium-, or high-scoring game, using recent trends, tactical setup, and key team news. Mention a few concrete anchors when useful.
 
 Final reminder:
-The finished copy must read like expert football analysis for end users. It must be richer, more explicit, and more insightful than a basic summary.
+The finished copy must read like expert football analysis for end users. It must be richer, more explicit, more insightful, and more concrete than a basic summary.
 """
 
 OUTPUT_SCHEMA = {
@@ -238,36 +280,40 @@ def inject_css():
             margin-top: 8px;
             margin-bottom: 8px;
         }
+        .bookmaker-box {
+            border: 1px solid rgba(49, 51, 63, 0.12);
+            border-radius: 14px;
+            padding: 14px 16px;
+            background: #f8fafc;
+            color: #111827;
+            margin-bottom: 16px;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
+
 
 def clean_text(value):
     if value is None:
         return None
     return str(value).replace("\xa0", " ").strip()
 
+
 def clean_model_text(text):
     if text is None:
         return ""
 
     text = str(text)
-
-    # Convert common HTML tags into readable plain text
     text = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<p\s*>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<li\s*>", "• ", text, flags=re.IGNORECASE)
     text = re.sub(r"</li\s*>", "\n", text, flags=re.IGNORECASE)
-
-    # Remove any remaining HTML tags
     text = re.sub(r"<[^>]+>", "", text)
-
-    # Decode HTML entities like &amp;
     text = html.unescape(text)
-
     return text.strip()
+
 
 def parse_percent(value):
     text = clean_text(value)
@@ -415,7 +461,7 @@ def load_matches_from_excel(path):
     return matches
 
 
-def build_user_payload(match):
+def build_user_payload(match, bookmaker):
     return {
         "match": {
             "home_team": match["home_team"],
@@ -423,17 +469,96 @@ def build_user_payload(match):
             "match_date": match["match_date"],
             "output_language": "en",
         },
+        "partner_bookmaker": {
+            "name": bookmaker["name"],
+            "url": bookmaker["url"],
+            "placeholder_odds": "XX",
+        },
         "engine_forecast": match["engine_forecast"],
     }
 
 
-def generate_explanation(match, model_name, system_prompt, allowed_domains, max_tool_calls):
+def format_goals_market_key(key):
+    parts = key.split("_")
+    if len(parts) == 3:
+        side = parts[0].capitalize()
+        line = f"{parts[1]}.{parts[2]}"
+        return f"{side} {line}"
+    return key
+
+
+def get_top_goals_market(goals_data):
+    valid_items = {k: v for k, v in goals_data.items() if v is not None}
+    if not valid_items:
+        return "Goals market"
+    top_key = max(valid_items, key=valid_items.get)
+    return format_goals_market_key(top_key)
+
+
+def append_bookmaker_note(base_text, note):
+    base_text = clean_model_text(base_text).strip()
+    note = note.strip()
+
+    if not base_text:
+        return note
+
+    if base_text[-1] not in ".!?":
+        base_text += "."
+
+    return f"{base_text} {note}"
+
+
+def make_bookmaker_note(section_key, bookmaker, match):
+    name = bookmaker["name"]
+    url = bookmaker["url"]
+    odds_link = f"[XX]({url})"
+
+    forecast = match["engine_forecast"]
+
+    favored_outcome = forecast["match_outcome_probability"]["favored_outcome"]
+    likely_score = forecast["correct_score_probability"]["most_likely_score"]
+    btts_outcome = forecast["both_teams_to_score"]["most_likely_outcome"]
+    top_goals_market = get_top_goals_market(forecast["match_goals_probability"])
+
+    if section_key == "general_match_description":
+        return (
+            f"{name} broadly leans towards that overall match script in this demo "
+            f"and offers {odds_link} for that angle."
+        )
+
+    if section_key == "match_outcome_probability":
+        return (
+            f"{name} also leans towards a {favored_outcome.lower()} in this demo "
+            f"and lists {odds_link} for that outcome."
+        )
+
+    if section_key == "correct_score_probability":
+        return (
+            f"{name} also prices the {likely_score} scoreline at {odds_link} in this demo."
+        )
+
+    if section_key == "both_teams_to_score":
+        return (
+            f"{name} also leans towards BTTS {btts_outcome.lower()} in this demo "
+            f"and shows {odds_link} for that market."
+        )
+
+    if section_key == "match_goals_probability":
+        return (
+            f"{name} also points towards {top_goals_market} in this demo "
+            f"and offers {odds_link} for that line."
+        )
+
+    return f"{name} also shows {odds_link} for this market in the demo."
+
+
+def generate_explanation(match, bookmaker, model_name, system_prompt, allowed_domains, max_tool_calls):
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
     response = client.responses.create(
         model=model_name,
         instructions=system_prompt,
-        input=json.dumps(build_user_payload(match), ensure_ascii=False),
+        input=json.dumps(build_user_payload(match, bookmaker), ensure_ascii=False),
         tools=[
             {
                 "type": "web_search",
@@ -486,6 +611,23 @@ def render_match_header(match):
             </div>
             <div style="margin-top: 8px; font-size: 1rem; color: rgba(255,255,255,0.85);">
                 {match_date_display}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_bookmaker_box(bookmaker):
+    st.markdown(
+        f"""
+        <div class="bookmaker-box">
+            <div class="small-label">Partner bookmaker</div>
+            <div style="font-size: 1.05rem; font-weight: 700;">
+                <a href="{html.escape(bookmaker["url"])}" target="_blank">{html.escape(bookmaker["name"])}</a>
+            </div>
+            <div class="muted-text" style="margin-top: 6px;">
+                Demo mode: analysis blocks will include a clickable placeholder odds link using XX.
             </div>
         </div>
         """,
@@ -568,8 +710,15 @@ def render_analysis_block(title, text, badge_text=None, risk_note=None):
 st.set_page_config(page_title="Kickform LLM explainer", layout="wide")
 inject_css()
 
+if "last_result" not in st.session_state:
+    st.session_state["last_result"] = None
+if "last_result_key" not in st.session_state:
+    st.session_state["last_result_key"] = None
+
 st.title("Kickform LLM explainer")
-st.caption("Select a match from your forecast file, review the forecast data, then generate a readable expert-style explanation.")
+st.caption(
+    "Select a match from your forecast file, review the forecast data, choose a partner bookmaker, then generate a readable expert-style explanation."
+)
 
 with st.sidebar:
     st.header("Settings")
@@ -579,6 +728,13 @@ with st.sidebar:
         model_name = st.text_input("Custom model ID", value="gpt-5.4")
     else:
         model_name = model_choice
+
+    partner_bookmaker_key = st.selectbox(
+        "Partner bookmaker",
+        list(BOOKMAKER_OPTIONS.keys()),
+        index=0,
+    )
+    selected_bookmaker = BOOKMAKER_OPTIONS[partner_bookmaker_key]
 
     max_tool_calls = st.slider("Max web search calls", 1, 10, 4)
 
@@ -592,7 +748,7 @@ with st.sidebar:
     system_prompt = st.text_area(
         "System prompt",
         value=DEFAULT_SYSTEM_PROMPT,
-        height=420,
+        height=500,
     )
 
 matches = load_matches_from_excel("Forecasts.xlsx")
@@ -604,65 +760,107 @@ if not matches:
 selected_label = st.selectbox("Select a match", [m["label"] for m in matches])
 selected_match = next(m for m in matches if m["label"] == selected_label)
 
+current_result_key = f"{selected_label}__{partner_bookmaker_key}__{model_name}"
+
 render_match_data(selected_match)
+render_bookmaker_box(selected_bookmaker)
+
+if "OPENAI_API_KEY" not in st.secrets:
+    st.error("OPENAI_API_KEY is missing from your Streamlit secrets.")
+    st.stop()
 
 if st.button("Generate explanation", type="primary"):
     try:
         with st.status("Working on your explanation", expanded=True) as status:
             st.write("Step 1/5 — Reading the selected match and forecast values from the Excel file.")
-            payload = build_user_payload(selected_match)
+            payload = build_user_payload(selected_match, selected_bookmaker)
 
-            st.write("Step 2/5 — Preparing the research brief and checking your app settings.")
+            st.write("Step 2/5 — Preparing the research brief, bookmaker context, and app settings.")
             _ = {
                 "model": model_name,
                 "allowed_domains_count": len(allowed_domains),
                 "max_tool_calls": max_tool_calls,
                 "payload_ready": bool(payload),
+                "bookmaker": selected_bookmaker["name"],
             }
 
-            st.write("Step 3/5 — Asking the model to research trusted football websites and compare the match context.")
+            st.write("Step 3/5 — Researching trusted football websites and comparing the real match context.")
             result = generate_explanation(
                 match=selected_match,
+                bookmaker=selected_bookmaker,
                 model_name=model_name,
                 system_prompt=system_prompt,
                 allowed_domains=allowed_domains,
                 max_tool_calls=max_tool_calls,
             )
 
-            st.write("Step 4/5 — Converting the response into structured analysis blocks.")
-            st.write("Step 5/5 — Rendering the final explanation in the page.")
+            st.write("Step 4/5 — Checking the output structure and preparing consistent analysis blocks.")
+            st.write("Step 5/5 — Rendering the final explanation on the page.")
             status.update(label="Explanation ready", state="complete", expanded=False)
+
+        st.session_state["last_result"] = result
+        st.session_state["last_result_key"] = current_result_key
 
     except Exception as e:
         st.error(f"Error: {e}")
-    else:
-        st.markdown("## Expert analysis")
 
-        render_analysis_block(
-            title=result["general_match_description"]["title"],
-            text=result["general_match_description"]["text"],
-            risk_note=result["general_match_description"]["risk_note"],
-        )
+result_to_show = None
+if st.session_state["last_result"] is not None and st.session_state["last_result_key"] == current_result_key:
+    result_to_show = st.session_state["last_result"]
 
-        render_analysis_block(
-            title=result["match_outcome_probability"]["title"],
-            text=result["match_outcome_probability"]["text"],
-            badge_text=f'Favored outcome: {result["match_outcome_probability"]["favored_outcome"]}',
-        )
+if result_to_show:
+    st.markdown("## Expert analysis")
 
-        render_analysis_block(
-            title=result["correct_score_probability"]["title"],
-            text=result["correct_score_probability"]["text"],
-            badge_text=f'Most likely score: {result["correct_score_probability"]["most_likely_score"]}',
-        )
+    general_text = append_bookmaker_note(
+        result_to_show["general_match_description"]["text"],
+        make_bookmaker_note("general_match_description", selected_bookmaker, selected_match),
+    )
 
-        render_analysis_block(
-            title=result["both_teams_to_score"]["title"],
-            text=result["both_teams_to_score"]["text"],
-            badge_text=f'Most likely BTTS outcome: {result["both_teams_to_score"]["most_likely_outcome"]}',
-        )
+    outcome_text = append_bookmaker_note(
+        result_to_show["match_outcome_probability"]["text"],
+        make_bookmaker_note("match_outcome_probability", selected_bookmaker, selected_match),
+    )
 
-        render_analysis_block(
-            title=result["match_goals_probability"]["title"],
-            text=result["match_goals_probability"]["text"],
-        )
+    score_text = append_bookmaker_note(
+        result_to_show["correct_score_probability"]["text"],
+        make_bookmaker_note("correct_score_probability", selected_bookmaker, selected_match),
+    )
+
+    btts_text = append_bookmaker_note(
+        result_to_show["both_teams_to_score"]["text"],
+        make_bookmaker_note("both_teams_to_score", selected_bookmaker, selected_match),
+    )
+
+    goals_text = append_bookmaker_note(
+        result_to_show["match_goals_probability"]["text"],
+        make_bookmaker_note("match_goals_probability", selected_bookmaker, selected_match),
+    )
+
+    render_analysis_block(
+        title=result_to_show["general_match_description"]["title"],
+        text=general_text,
+        risk_note=result_to_show["general_match_description"]["risk_note"],
+    )
+
+    render_analysis_block(
+        title=result_to_show["match_outcome_probability"]["title"],
+        text=outcome_text,
+        badge_text=f'Favored outcome: {result_to_show["match_outcome_probability"]["favored_outcome"]}',
+    )
+
+    render_analysis_block(
+        title=result_to_show["correct_score_probability"]["title"],
+        text=score_text,
+        badge_text=f'Most likely score: {result_to_show["correct_score_probability"]["most_likely_score"]}',
+    )
+
+    render_analysis_block(
+        title=result_to_show["both_teams_to_score"]["title"],
+        text=btts_text,
+        badge_text=f'Most likely BTTS outcome: {result_to_show["both_teams_to_score"]["most_likely_outcome"]}',
+    )
+
+    render_analysis_block(
+        title=result_to_show["match_goals_probability"]["title"],
+        text=goals_text,
+    )
